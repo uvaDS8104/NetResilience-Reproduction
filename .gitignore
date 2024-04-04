@@ -1,0 +1,14 @@
+# ignore pycache
+__pycache__/
+.ipynb_checkpoints/
+
+# ignore logs
+logs/
+
+# ignore backup old code
+old_code.py
+
+# ignore csv files used to create the internet and www gml files
+data/internet/*.csv
+data/worldwideweb/*.csv
+
