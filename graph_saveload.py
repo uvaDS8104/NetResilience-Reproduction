@@ -20,16 +20,10 @@ def _from_csv(csvdir, create_using=nx.Graph):
             edgelist.append((source, target))
 
     g = nx.from_edgelist(edgelist, create_using=create_using)
-    # print('original')
-    # print(nx.number_of_nodes(g))
-    # print(nx.number_of_edges(g))
 
     # convert to undirected graph and remove self loops
-    # print('after to undirected and remove self loops')
     g = g.to_undirected()
     g.remove_edges_from(nx.selfloop_edges(g))
-    # print(nx.number_of_nodes(g))
-    # print(nx.number_of_edges(g))
 
     return g
 
@@ -72,9 +66,6 @@ def nx_load_synth_graphs():
 
     er_list = []
     pa_list = []
-
-    # print(ers)
-    # print(pas)
 
     for i in range(len(ers)):
         g_er = nx.read_gml(f'data/ER/{i:02d}.gml')
