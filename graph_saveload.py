@@ -2,6 +2,7 @@ import numpy as np
 import graph_tool.all as gt
 import networkx as nx
 import glob
+import os
 from csv import reader as csvreader
 from csv import list_dialects
 
@@ -29,6 +30,8 @@ def _from_csv(csvdir, create_using=nx.Graph):
 
 
 def nx_gen_save_synth_graphs(n_graphs):
+    os.makedirs('data/ER/', exist_ok=True)
+    os.makedirs('data/PA/', exist_ok=True)
     N = 10000
     M = 20000
     m = 2
@@ -48,6 +51,9 @@ def nx_gen_save_synth_graphs(n_graphs):
 def nx_save_real_graphs():
     internet = 'data/internet/'
     www = 'data/worldwideweb/'
+    
+    os.makedirs(internet, exist_ok=True)
+    os.makedirs(www, exist_ok=True)
 
     g1 = _from_csv(internet)
     g2 = _from_csv(www, create_using=nx.DiGraph)
@@ -73,7 +79,11 @@ def nx_load_synth_graphs():
 
         er_list.append(g_er)
         pa_list.append(g_pa)
-
+    
+    ## loaded graphs use strings as node labels for some reason
+    er_list = [nx.convert_node_labels_to_integers(g) for g in er_list]
+    pa_list = [nx.convert_node_labels_to_integers(g) for g in pa_list]
+    
     # build gdict
     gdict = {}
     gdict['N'] = 10000
@@ -87,12 +97,19 @@ def nx_load_synth_graphs():
 def nx_load_real_graphs():
     g1 = nx.read_gml('data/internet/internet.gml')
     g2 = nx.read_gml('data/worldwideweb/worldwideweb.gml')
+    
+    ## loaded graphs use strings as node labels for some reason
+    g1 = nx.convert_node_labels_to_integers(g1)
+    g2 = nx.convert_node_labels_to_integers(g2)
 
     ## build gdict
     gdict = {}
-    gdict['gs'] = [g1, g2]
-    gdict['names'] = ['Internet', 'World Wide Web']
-    gdict['descs'] = ['Topology map of the Internet', 'Sample of web page net based on University of Notre Dame pages']
+    gdict['INT'] = ([g1], 'Internet', 'Topology map of the Internet')
+    gdict['WWW'] = ([g2], 'World Wide Web', \
+                    'Sample of web page net based on University of Notre Dame pages')
+    # gdict['gs'] = [g1, g2]
+    # gdict['names'] = ['Internet', 'World Wide Web']
+    # gdict['descs'] = ['Topology map of the Internet', 'Sample of web page net based on University of Notre Dame pages']
 
     return gdict
 
@@ -186,10 +203,119 @@ def load_real_graphs():
     return gdict
 
 
+def nx_gen_save_synth_multilayer_graphs(n_graphs):
+    os.makedirs('data/ER2/', exist_ok=True)
+    os.makedirs('data/PA2/', exist_ok=True)
+    os.makedirs('data/ERPA/', exist_ok=True)
+    
+    N = 5000  # number of nodes in both layers
+    M = 9500  # number of edges in er layer
+    L = 1000   # number of edges between layer 1 and layer 2
+    m = 2  ## number of edges created by each new node in pa layer
+    
+    er2s = []
+    pa2s = []
+    erpas = []
+    
+    V1 = np.arange(N, dtype=int)
+    V2 = np.arange(N, 2 * N, dtype=int)
+    
+    prng = np.random.default_rng()
+    
+    for i in range(n_graphs):
+        er2 = _gen_er2(N, M)
+        pa2 = _gen_pa2(N, m)
+        erpa = _gen_erpa(N, M, m)
+        
+        _link_layers(er2, V1, V2, L, prng)
+        _link_layers(pa2, V1, V2, L, prng)
+        _link_layers(erpa, V1, V2, L, prng)
+        
+        er2.remove_edges_from(nx.selfloop_edges(er2))
+        pa2.remove_edges_from(nx.selfloop_edges(pa2))
+        erpa.remove_edges_from(nx.selfloop_edges(erpa))
+        
+        nx.write_gml(er2, f'data/ER2/{i:02d}.gml')
+        nx.write_gml(pa2, f'data/PA2/{i:02d}.gml')
+        nx.write_gml(erpa, f'data/ERPA/{i:02d}.gml')
+
+        
+def _gen_er2(N, M):
+    g1 = nx.gnm_random_graph(N, M)
+    g2 = nx.gnm_random_graph(N, M)
+    g = nx.disjoint_union(g1, g2)
+
+    return g
+
+
+def _gen_pa2(N, m):
+    g1 = nx.barabasi_albert_graph(N, m)
+    g2 = nx.barabasi_albert_graph(N, m)
+    g = nx.disjoint_union(g1, g2)
+
+    return g
+
+
+def _gen_erpa(N, M, m):
+    g1 = nx.gnm_random_graph(N, M)
+    g2 = nx.barabasi_albert_graph(N, m)
+    g = nx.disjoint_union(g1, g2)
+
+    return g
+
+
+def _link_layers(g, V1, V2, L, prng):
+    prng.shuffle(V1)
+    prng.shuffle(V2)
+    
+    for i in range(L):
+        g.add_edge(V1[i], V2[i])
+        
+        
+def nx_load_synth_multilayer_graphs():
+    root_dir_er2 = 'data/ER2/'
+    root_dir_pa2 = 'data/PA2/'
+    root_dir_erpa = 'data/ERPA/'
+    
+    er2s = glob.glob('*.gml', root_dir=root_dir_er2)
+    pa2s = glob.glob('*.gml', root_dir=root_dir_pa2)
+    erpas = glob.glob('*.gml', root_dir=root_dir_erpa)
+    
+    er2s.sort()
+    pa2s.sort()
+    erpas.sort()
+
+    er2_list = []
+    pa2_list = []
+    erpa_list = []
+
+    for i in range(len(er2s)):
+        g_er2 = nx.read_gml(f'data/ER2/{i:02d}.gml')
+        g_pa2 = nx.read_gml(f'data/PA2/{i:02d}.gml')
+        g_erpa = nx.read_gml(f'data/ERPA/{i:02d}.gml')
+
+        er2_list.append(g_er2)
+        pa2_list.append(g_pa2)
+        erpa_list.append(g_erpa)
+        
+        er2_list = [nx.convert_node_labels_to_integers(g) for g in er2_list]
+        pa2_list = [nx.convert_node_labels_to_integers(g) for g in pa2_list]
+        erpa_list = [nx.convert_node_labels_to_integers(g) for g in erpa_list]
+        
+    gdict = {}
+    gdict['ER2'] = er2_list
+    gdict['PA2'] = pa2_list
+    gdict['ERPA'] = erpa_list
+    
+    return gdict
+
+
 def main():
     n_graphs = 10
-    nx_gen_save_synth_graphs(n_graphs)
-    nx_save_real_graphs()
+    # nx_gen_save_synth_graphs(n_graphs)
+    # nx_save_real_graphs()
+    
+    nx_gen_save_synth_multilayer_graphs(n_graphs)
 
 
 if __name__ == '__main__':

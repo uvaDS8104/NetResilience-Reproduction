@@ -8,6 +8,9 @@ logs/
 # ignore backup old code
 old_code.py
 
+# ignore drafting notebook
+drafting.ipynb
+
 # ignore csv files used to create the internet and www gml files
 data/internet/*.csv
 data/worldwideweb/*.csv
